@@ -4,7 +4,8 @@ on:
   schedule:
     - cron: '30 10 * * *' # Chạy lúc 17h30 giờ Việt Nam hàng ngày
   workflow_dispatch: # Cho phép bạn bấm nút chạy thủ công nếu muốn
-
+permissions:
+  contents: write  # Cấp quyền cho Bot được phép đẩy (push) code lên lại
 jobs:
   update_data:
     runs-on: ubuntu-latest
@@ -28,6 +29,9 @@ jobs:
         run: |
           git config --global user.name "AI-Bot"
           git config --global user.email "bot@github.com"
-          git add xsmn_final_clean.csv model_xsmn_predict.pkl
-          git commit -m "Bot: Tu dong cap nhat du lieu va model" || exit 0
-          git push
+          # Kiểm tra xem file có tồn tại không trước khi add
+          git add xsmn_final_clean.csv model_xsmn_predict.pkl || echo "No files to add"
+          # Commit nhưng không báo lỗi nếu không có gì thay đổi
+          git commit -m "Bot: Tu dong cap nhat du lieu va model $(date)" || exit 0
+          # Đẩy lên với tham số --force nếu cần, hoặc push bình thường
+          git push origin main
