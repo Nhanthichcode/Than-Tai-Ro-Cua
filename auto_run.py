@@ -74,48 +74,55 @@ def get_day_lotos(row):
 
 # ==========================================
 # 3. BỘ HUẤN LUYỆN AI NÂNG CAO (OPTIMIZED TRAINING)
-# ==========================================
-def train_brain(df):
-    print("🧠 Đang tái huấn luyện bộ não AI (Bản nâng cấp 10-20MB)...")
-    df['Date_DT'] = pd.to_datetime(df['Ngày'], dayfirst=True)
-    ml_rows = []
-    
-    # Chỉ lấy dữ liệu của 5 đài phổ biến nhất để huấn luyện nhanh và thông minh
-    popular_dais = df['Đài'].value_counts().head(5).index
-    
-    for dai in popular_dais:
-        group = df[df['Đài'] == dai].sort_values('Date_DT').reset_index(drop=True)
-        draws = group.apply(get_day_lotos, axis=1).tolist()
+def scrape_today_xsmn():
+    print("🌐 Đang kết nối để lấy kết quả mới nhất...")
+    url = "https://www.minhngoc.com.vn/ket-qua-xo-so/mien-nam.html"
+    try:
+        response = requests.get(url, timeout=15)
+        soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Chỉ học 100 kỳ gần nhất của mỗi đài để bộ não luôn "nhạy bén"
-        start_idx = max(50, len(group) - 150)
-        for i in range(start_idx, len(group)):
-            for n in range(100):
-                s_num = f"{n:02d}"
-                gap = 0
-                for j in range(i-1, -1, -1):
-                    if s_num in draws[j]: break
-                    gap += 1
-                f10 = sum(1 for d in draws[i-10:i] if s_num in d)
-                f30 = sum(1 for d in draws[i-30:i] if s_num in d)
-                ml_rows.append([n, gap, f10, f30, 1 if s_num in draws[i] else 0])
-
-    train_df = pd.DataFrame(ml_rows, columns=['So', 'Gap', 'F10', 'F30', 'Target'])
-    
-    # --- THAY ĐỔI ĐỘ SÂU ĐỂ SỬA LỖI 1MB ---
-    model = RandomForestClassifier(
-        n_estimators=150,  # Tăng số cây
-        max_depth=18,       # Tăng độ sâu (vừa đủ để thông minh, không quá nặng)
-        min_samples_leaf=2,
-        random_state=42,
-        n_jobs=-1
-    )
-    model.fit(train_df.drop(columns=['Target']), train_df['Target'])
-    
-    # Lưu và nén mức độ 1 để giữ chất lượng
-    joblib.dump(model, MODEL_FILE, compress=1)
-    print(f"✅ Bộ não mới đã sẵn sàng! Dung lượng file: {os.path.getsize(MODEL_FILE)/1024:.2f} KB")
-
+        table = soup.find('table', class_='bkqmiennam')
+        if not table: 
+            print("⚠️ Không tìm thấy bảng kết quả.")
+            return None
+        
+        # Lấy ngày hiện tại trên web
+        date_node = soup.find('td', class_='ngay')
+        if not date_node: return None
+        date_str = date_node.text.strip()
+        
+        # Lấy danh sách Đài
+        dais = [td.text.strip() for td in table.find_all('td', class_='tinh')]
+        num_dais = len(dais)
+        if num_dais == 0: return None
+        
+        new_data = []
+        for i in range(num_dais):
+            row_data = {'Ngày': date_str, 'Đài': dais[i]}
+            
+            # Kiểm tra an toàn cho từng giải
+            for g in range(1, 9):
+                prize_name = f'G.{g}'
+                cells = table.find_all('td', class_=f'g{g}')
+                
+                # CHỐT CHẶN LỖI: Kiểm tra xem có đủ cột cho đài này không
+                if len(cells) > i:
+                    row_data[prize_name] = cells[i].text.strip().replace("\n", "")
+                else:
+                    row_data[prize_name] = "" # Nếu chưa có số thì để trống
+            
+            # Giải Đặc biệt
+            db_cells = table.find_all('td', class_='db')
+            row_data['ĐB'] = db_cells[i].text.strip() if len(db_cells) > i else ""
+            
+            # Chỉ thêm vào nếu đài này đã có đủ số (tránh lấy đài đang quay dở)
+            if row_data['ĐB'] != "":
+                new_data.append(row_data)
+            
+        return pd.DataFrame(new_data) if new_data else None
+    except Exception as e:
+        print(f"❌ Lỗi hệ thống: {e}")
+        return None
 # ==========================================
 # 4. CHẠY TỰ ĐỘNG (MAIN)
 # ==========================================
