@@ -4,7 +4,8 @@ on:
   schedule:
     - cron: '30 10 * * *' # Chạy lúc 17h30 giờ Việt Nam hàng ngày
   workflow_dispatch: # Cho phép bạn bấm nút chạy thủ công nếu muốn
-
+permissions:
+  contents: write  # Cấp quyền cho Bot được phép đẩy (push) code lên lại
 jobs:
   update_data:
     runs-on: ubuntu-latest
