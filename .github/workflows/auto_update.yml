@@ -1,0 +1,33 @@
+name: Tu Dong Cap Nhat XSMN
+
+on:
+  schedule:
+    - cron: '30 10 * * *' # Chạy lúc 17h30 giờ Việt Nam hàng ngày
+  workflow_dispatch: # Cho phép bạn bấm nút chạy thủ công nếu muốn
+
+jobs:
+  update_data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kiem tra code
+        uses: actions/checkout@v3
+
+      - name: Cai dat Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Cai dat thu vien
+        run: |
+          pip install pandas requests beautifulsoup4 scikit-learn joblib
+
+      - name: Chay script cao du lieu va huan luyen
+        run: python auto_run.py # Day la file minh se tao o Buoc 3
+
+      - name: Day du lieu moi len Github
+        run: |
+          git config --global user.name "AI-Bot"
+          git config --global user.email "bot@github.com"
+          git add xsmn_final_clean.csv model_xsmn_predict.pkl
+          git commit -m "Bot: Tu dong cap nhat du lieu va model" || exit 0
+          git push
